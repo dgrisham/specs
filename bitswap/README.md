@@ -62,23 +62,27 @@ Task workers pull tasks to be done off of the queue, retreive the block to be se
 
 # Wire Format
 
-Streams of ["bitswap messages" according to this protobuf](https://github.com/ipfs/go-ipfs/blob/master/exchange/bitswap/message/pb/message.proto):
+Streams of Bitswap messages. You can also see [this protobuf](https://github.com/ipfs/go-ipfs/blob/master/exchange/bitswap/message/pb/message.proto) specification. Strictly, the format should follow this Haskell ADT:
 
-    message Message {
-      message Wantlist {
-        message Entry {
-          optional string block = 1; // the block key
-          optional int32 priority = 2; // the priority (normalized). default to 1
-          optional bool cancel = 3;  // whether this revokes an entry
-        }
-    
-        repeated Entry entries = 1; // a list of wantlist entries
-        optional bool full = 2;     // whether this is the full wantlist. default to false
-      }
-    
-      optional Wantlist wantlist = 1;
-      repeated bytes blocks = 2;
-    }
+``` haskell
+-- TODO: worth specifying `Maybe [Block]` to distinguish `[]` and `Nothing`?
+-- probably not, but be certain
+data BitswapMessage = Message (Maybe Wantlist) [Block]
+
+-- IsComplete -> IsFull for consistent terminology?
+data Wantlist = Wantlist [Entry] IsComplete
+
+data Entry = Entry CID Priority Cancel
+type IsComplete = Bool
+type CID = String -- is this synonym required/necessary?
+type Priority = Int -- Int32 -- important?
+
+data Block = Block Prefix Data -- think this came from Go type in blocks repo
+-- TODO: figure out this Prefix type
+type Prefix = (CIDVersion, MultiCode, MultiHashPrefix (type + length))
+-- necessary?
+type Data = [Byte]
+```
 
 # Implementation details
 
@@ -135,13 +139,15 @@ Modules:
 
 Notes:
 
-    var bs = new BlockService(repo, bitswap)
-    bs.getBlock(multihash, (err, block) => {
-      // 1) try to fetch from repo
-      // 2) if not -> ask bitswap
-        // 2.1) bitswap will cb() once the block is back, once.
-        //      bitswap will write to the repo as well. 
-    })
+```
+var bs = new BlockService(repo, bitswap)
+bs.getBlock(multihash, (err, block) => {
+  // 1) try to fetch from repo
+  // 2) if not -> ask bitswap
+    // 2.1) bitswap will cb() once the block is back, once.
+    //      bitswap will write to the repo as well. 
+})
+```
 
 # API Spec
 
